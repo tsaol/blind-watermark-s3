@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Blind watermark solution using S3 Object Lambda
+
+Parameters:
+  SourceBucketName:
+    Type: String
+    Default: blind-watermark-source
+    Description: S3 bucket for original images
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 120
+    MemorySize: 2048
+    Architectures:
+      - x86_64
+
+Resources:
+  ImageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref SourceBucketName
+
+  SupportingAccessPoint:
+    Type: AWS::S3::AccessPoint
+    Properties:
+      Bucket: !Ref ImageBucket
+      Name: !Sub "${SourceBucketName}-ap"
+
+  DependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: blind-watermark-deps
+      Description: numpy, opencv-python-headless, Pillow
+      ContentUri: layer/
+      CompatibleRuntimes:
+        - python3.12
+    Metadata:
+      BuildMethod: makefile
+
+  SharedCodeLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: blind-watermark-shared
+      Description: Shared watermark core logic
+      ContentUri: src/shared/
+      CompatibleRuntimes:
+        - python3.12
+
+  EmbedFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: blind-watermark-embed
+      Handler: app.lambda_handler
+      CodeUri: src/embed/
+      Layers:
+        - !Ref DependenciesLayer
+        - !Ref SharedCodeLayer
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref SourceBucketName
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3-object-lambda:WriteGetObjectResponse
+              Resource: "*"
+
+  ObjectLambdaAccessPoint:
+    Type: AWS::S3ObjectLambda::AccessPoint
+    Properties:
+      Name: !Sub "${SourceBucketName}-olap"
+      ObjectLambdaConfiguration:
+        SupportingAccessPoint: !GetAtt SupportingAccessPoint.Arn
+        TransformationConfigurations:
+          - Actions:
+              - GetObject
+            ContentTransformation:
+              AwsLambda:
+                FunctionArn: !GetAtt EmbedFunction.Arn
+
+  ExtractFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: blind-watermark-extract
+      Handler: app.lambda_handler
+      CodeUri: src/extract/
+      Timeout: 30
+      Layers:
+        - !Ref DependenciesLayer
+        - !Ref SharedCodeLayer
+      Events:
+        ExtractApi:
+          Type: Api
+          Properties:
+            Path: /extract
+            Method: post
+
+Outputs:
+  ObjectLambdaAccessPointArn:
+    Description: S3 Object Lambda Access Point ARN
+    Value: !GetAtt ObjectLambdaAccessPoint.Arn
+
+  ExtractApiUrl:
+    Description: Extract API endpoint
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/extract"
+
+  ImageBucketName:
+    Description: Source image bucket
+    Value: !Ref ImageBucket
