@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blind Watermark</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { 900: '#0f1419', 800: '#1a1f25', 700: '#2f3336' },
+                        accent: { DEFAULT: '#00e5a0', dark: '#00cc8c' }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-dark-900 text-gray-200 min-h-screen">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useRef } = React;
+
+        function App() {
+            const [tab, setTab] = useState('arch');
+
+            return (
+                <div className="max-w-4xl mx-auto px-4 py-8">
+                    <h1 className="text-3xl font-bold mb-1">
+                        <span className="text-accent">Blind</span> Watermark
+                    </h1>
+                    <p className="text-gray-500 mb-8">Invisible DCT watermarking - embed per-user ID, extract to trace leaks</p>
+
+                    <div className="flex border-b border-dark-700 mb-8">
+                        <Tab active={tab === 'arch'} onClick={() => setTab('arch')}>Architecture</Tab>
+                        <Tab active={tab === 'embed'} onClick={() => setTab('embed')}>Embed</Tab>
+                        <Tab active={tab === 'extract'} onClick={() => setTab('extract')}>Extract</Tab>
+                    </div>
+
+                    {tab === 'arch' && <ArchPanel />}
+                    {tab === 'embed' && <EmbedPanel />}
+                    {tab === 'extract' && <ExtractPanel />}
+                </div>
+            );
+        }
+
+        function Tab({ active, onClick, children }) {
+            return (
+                <button
+                    onClick={onClick}
+                    className={`px-6 py-3 text-sm font-medium border-b-2 transition-all ${
+                        active
+                            ? 'text-accent border-accent'
+                            : 'text-gray-500 border-transparent hover:text-gray-300'
+                    }`}
+                >
+                    {children}
+                </button>
+            );
+        }
+
+        function EmbedPanel() {
+            const [userId, setUserId] = useState('demo-user-001');
+            const [file, setFile] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const [result, setResult] = useState(null);
+            const [error, setError] = useState(null);
+            const fileRef = useRef();
+
+            const handleEmbed = async () => {
+                if (!file) return;
+                setLoading(true);
+                setError(null);
+                setResult(null);
+
+                const formData = new FormData();
+                formData.append('image', file);
+                formData.append('user_id', userId || 'anonymous');
+
+                try {
+                    const resp = await fetch('/api/embed', { method: 'POST', body: formData });
+                    const data = await resp.json();
+                    if (!resp.ok) throw new Error(data.error || 'Failed');
+                    setResult(data);
+                } catch (e) {
+                    setError(e.message);
+                }
+                setLoading(false);
+            };
+
+            return (
+                <div className="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold mb-4">Embed invisible watermark</h3>
+
+                    <div className="mb-4">
+                        <label className="block text-sm text-gray-500 mb-1.5">User ID to embed</label>
+                        <input
+                            type="text"
+                            value={userId}
+                            onChange={e => setUserId(e.target.value)}
+                            placeholder="e.g. user-123, alice@company.com"
+                            className="w-full px-4 py-2.5 bg-dark-900 border border-dark-700 rounded-lg text-gray-200 focus:border-accent focus:outline-none"
+                        />
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-sm text-gray-500 mb-1.5">Image (PNG/JPG, min 256x256)</label>
+                        <DropZone file={file} setFile={setFile} fileRef={fileRef} />
+                    </div>
+
+                    <button
+                        onClick={handleEmbed}
+                        disabled={!file || loading}
+                        className="px-6 py-2.5 bg-accent text-dark-900 font-semibold rounded-lg hover:bg-accent-dark disabled:bg-dark-700 disabled:text-gray-500 disabled:cursor-not-allowed transition-all"
+                    >
+                        {loading ? <Spinner /> : 'Embed Watermark'}
+                    </button>
+
+                    {error && (
+                        <div className="mt-4 p-4 bg-red-950/50 border border-red-500/50 rounded-lg text-red-400">
+                            {error}
+                        </div>
+                    )}
+
+                    {result && (
+                        <div className="mt-6">
+                            <div className="flex gap-8 mb-4">
+                                <Stat label="User ID embedded" value={result.user_id} />
+                                <Stat label="Original size" value={`${(result.original_size / 1024).toFixed(0)} KB`} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <img src={URL.createObjectURL(file)} className="w-full rounded-lg border border-dark-700" />
+                                    <p className="text-center text-xs text-gray-500 mt-2">Original</p>
+                                </div>
+                                <div>
+                                    <img src={`data:image/png;base64,${result.image}`} className="w-full rounded-lg border border-dark-700" />
+                                    <p className="text-center text-xs text-gray-500 mt-2">Watermarked (invisible)</p>
+                                </div>
+                            </div>
+                            <a
+                                href={`data:image/png;base64,${result.image}`}
+                                download="watermarked.png"
+                                className="inline-block mt-3 text-accent hover:underline text-sm"
+                            >
+                                Download watermarked image
+                            </a>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function ExtractPanel() {
+            const [file, setFile] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const [result, setResult] = useState(null);
+            const [error, setError] = useState(null);
+            const fileRef = useRef();
+
+            const handleExtract = async () => {
+                if (!file) return;
+                setLoading(true);
+                setError(null);
+                setResult(null);
+
+                const formData = new FormData();
+                formData.append('image', file);
+
+                try {
+                    const resp = await fetch('/api/extract', { method: 'POST', body: formData });
+                    const data = await resp.json();
+                    if (data.status === 'failed') throw new Error(data.error || 'Failed');
+                    setResult(data);
+                } catch (e) {
+                    setError(e.message);
+                }
+                setLoading(false);
+            };
+
+            return (
+                <div className="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold mb-4">Extract watermark from image</h3>
+
+                    <div className="mb-4">
+                        <label className="block text-sm text-gray-500 mb-1.5">Watermarked image</label>
+                        <DropZone file={file} setFile={setFile} fileRef={fileRef} />
+                    </div>
+
+                    <button
+                        onClick={handleExtract}
+                        disabled={!file || loading}
+                        className="px-6 py-2.5 bg-accent text-dark-900 font-semibold rounded-lg hover:bg-accent-dark disabled:bg-dark-700 disabled:text-gray-500 disabled:cursor-not-allowed transition-all"
+                    >
+                        {loading ? <Spinner /> : 'Extract Watermark'}
+                    </button>
+
+                    {error && (
+                        <div className="mt-4 p-4 bg-red-950/50 border border-red-500/50 rounded-lg text-red-400">
+                            {error}
+                        </div>
+                    )}
+
+                    {result && (
+                        <div className="mt-4 p-4 bg-emerald-950/50 border border-accent/50 rounded-lg">
+                            <p className="text-xs text-gray-500">Extracted User ID</p>
+                            <p className="text-2xl text-accent font-bold mt-1">{result.user_id}</p>
+                            <p className="text-sm text-gray-500 mt-2">This user downloaded the image</p>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function ArchPanel() {
+            return (
+                <div className="space-y-6">
+                    <div className="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                        <h3 className="text-lg font-semibold mb-4">System Architecture</h3>
+                        <pre className="text-sm text-gray-300 bg-dark-900 p-4 rounded-lg overflow-x-auto font-mono leading-relaxed">{`
+  User Browser                     AWS (ap-northeast-1)
+  ============                     ====================
+
+  +------------------+             +---------------------------+
+  | blindwatermark.  | --HTTPS-->  | CloudFront (*.liucao.me)  |
+  | liucao.me       |             +---------------------------+
+  +------------------+                        |
+                                              v
+                                   +---------------------------+
+                                   | Private ALB Tokyo         |
+                                   | Host: blindwatermark...   |
+                                   +---------------------------+
+                                              |
+                                              v
+                                   +---------------------------+
+                                   | EC2 (Flask + Gunicorn)    |
+                                   | Port 8090                 |
+                                   +---------------------------+
+                                         |           |
+                            POST /api/embed    POST /api/extract
+                                         |           |
+                                         v           v
+                                   +----------+ +----------+
+                                   | Lambda:  | | Lambda:  |
+                                   | embed    | | extract  |
+                                   | (2GB)    | | (2GB)    |
+                                   +----------+ +----------+
+                                         |
+                                         v
+                                   +---------------------------+
+                                   | S3: original images       |
+                                   | (blind-watermark-source)  |
+                                   +---------------------------+
+`}</pre>
+                    </div>
+
+                    <div className="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                        <h3 className="text-lg font-semibold mb-4">How DCT Blind Watermarking Works</h3>
+                        <div className="space-y-4 text-sm text-gray-300">
+                            <Step n="1" title="Convert to YCbCr">
+                                Image is converted from RGB to YCbCr color space. We work on the Y (luminance) channel because human eyes are less sensitive to small luminance changes.
+                            </Step>
+                            <Step n="2" title="Split into 8x8 blocks">
+                                The Y channel is divided into 8x8 pixel blocks, same as JPEG compression uses internally.
+                            </Step>
+                            <Step n="3" title="Apply DCT (Discrete Cosine Transform)">
+                                Each block is transformed from spatial domain to frequency domain. Low frequencies = smooth areas, high frequencies = edges/detail.
+                            </Step>
+                            <Step n="4" title="Embed bits in mid-frequency coefficients">
+                                Each bit of the user ID is encoded by forcing a specific DCT coefficient to +50 (bit=1) or -50 (bit=0). Mid-frequency is chosen because it survives JPEG compression but isn't visible.
+                            </Step>
+                            <Step n="5" title="5x redundancy for robustness">
+                                Each bit is written to 5 separate blocks. During extraction, majority voting recovers the correct bit even if some blocks are corrupted.
+                            </Step>
+                            <Step n="6" title="Inverse DCT and reconstruct">
+                                Blocks are transformed back to spatial domain and the image is reconstructed. PSNR remains above 38dB (visually identical).
+                            </Step>
+                        </div>
+                    </div>
+
+                    <div className="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                        <h3 className="text-lg font-semibold mb-4">Demo Walkthrough</h3>
+                        <div className="space-y-3 text-sm text-gray-300">
+                            <div className="flex gap-3 items-start">
+                                <span className="bg-accent text-dark-900 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">1</span>
+                                <div><strong>Go to Embed tab</strong> - Upload any image (PNG or JPG, minimum 256x256 pixels)</div>
+                            </div>
+                            <div className="flex gap-3 items-start">
+                                <span className="bg-accent text-dark-900 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">2</span>
+                                <div><strong>Enter a User ID</strong> - This simulates the requesting user's identity (e.g. "alice@company.com")</div>
+                            </div>
+                            <div className="flex gap-3 items-start">
+                                <span className="bg-accent text-dark-900 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">3</span>
+                                <div><strong>Click Embed</strong> - The image is sent to Lambda, watermarked invisibly, and returned. Compare original vs watermarked side-by-side (they look identical)</div>
+                            </div>
+                            <div className="flex gap-3 items-start">
+                                <span className="bg-accent text-dark-900 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">4</span>
+                                <div><strong>Download the watermarked image</strong> - Save it, even convert to JPEG, screenshot it, etc.</div>
+                            </div>
+                            <div className="flex gap-3 items-start">
+                                <span className="bg-accent text-dark-900 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">5</span>
+                                <div><strong>Go to Extract tab</strong> - Upload the watermarked (or even JPEG-compressed) image</div>
+                            </div>
+                            <div className="flex gap-3 items-start">
+                                <span className="bg-accent text-dark-900 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">6</span>
+                                <div><strong>Click Extract</strong> - The hidden User ID is recovered from the image, revealing who originally downloaded it</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                        <h3 className="text-lg font-semibold mb-4">Properties</h3>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="bg-dark-900 rounded-lg p-3">
+                                <p className="text-gray-500">Visual Quality</p>
+                                <p className="text-accent text-lg">PSNR > 38dB</p>
+                                <p className="text-gray-500 text-xs">Indistinguishable from original</p>
+                            </div>
+                            <div className="bg-dark-900 rounded-lg p-3">
+                                <p className="text-gray-500">JPEG Robustness</p>
+                                <p className="text-accent text-lg">Quality 80+</p>
+                                <p className="text-gray-500 text-xs">Survives compression</p>
+                            </div>
+                            <div className="bg-dark-900 rounded-lg p-3">
+                                <p className="text-gray-500">Detection</p>
+                                <p className="text-accent text-lg">Blind</p>
+                                <p className="text-gray-500 text-xs">No original image needed</p>
+                            </div>
+                            <div className="bg-dark-900 rounded-lg p-3">
+                                <p className="text-gray-500">Payload</p>
+                                <p className="text-accent text-lg">Up to 64 chars</p>
+                                <p className="text-gray-500 text-xs">Per-user ID string</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="text-center">
+                        <a href="https://github.com/tsaol/blind-watermark-s3" target="_blank" className="text-accent hover:underline text-sm">
+                            View source on GitHub
+                        </a>
+                    </div>
+                </div>
+            );
+        }
+
+        function Step({ n, title, children }) {
+            return (
+                <div className="flex gap-3 items-start">
+                    <span className="bg-dark-700 text-accent rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">{n}</span>
+                    <div><strong className="text-gray-200">{title}</strong> - {children}</div>
+                </div>
+            );
+        }
+
+        function DropZone({ file, setFile, fileRef }) {
+            const [dragOver, setDragOver] = useState(false);
+
+            return (
+                <>
+                    <div
+                        onClick={() => fileRef.current.click()}
+                        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                        onDragLeave={() => setDragOver(false)}
+                        onDrop={e => {
+                            e.preventDefault();
+                            setDragOver(false);
+                            if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+                        }}
+                        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all ${
+                            file ? 'border-accent' : dragOver ? 'border-accent' : 'border-dark-700 hover:border-gray-500'
+                        }`}
+                    >
+                        {file ? (
+                            <p className="text-accent">{file.name}</p>
+                        ) : (
+                            <p className="text-gray-500">Drop image here or click to browse</p>
+                        )}
+                    </div>
+                    <input
+                        type="file"
+                        ref={fileRef}
+                        accept="image/*"
+                        className="hidden"
+                        onChange={e => { if (e.target.files.length) setFile(e.target.files[0]); }}
+                    />
+                </>
+            );
+        }
+
+        function Stat({ label, value }) {
+            return (
+                <div>
+                    <p className="text-xs text-gray-500">{label}</p>
+                    <p className="text-lg text-accent">{value}</p>
+                </div>
+            );
+        }
+
+        function Spinner() {
+            return (
+                <span className="inline-flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-dark-700 border-t-accent rounded-full animate-spin"></span>
+                    Processing...
+                </span>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
