@@ -1,109 +1,146 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Transform: AWS::Serverless-2016-10-31
-Description: Blind watermark solution using S3 Object Lambda
+Description: Blind watermark solution - embed on retrieval, extract for verification (all private, IAM auth)
 
 Parameters:
   SourceBucketName:
     Type: String
-    Default: blind-watermark-source
+    Default: blind-watermark-source-342367142984
     Description: S3 bucket for original images
-
-Globals:
-  Function:
-    Runtime: python3.12
-    Timeout: 120
-    MemorySize: 2048
-    Architectures:
-      - x86_64
+  ArtifactBucket:
+    Type: String
+    Default: cls-blind-watermark-tokyo
+    Description: S3 bucket containing deployment artifacts
+  ArtifactPrefix:
+    Type: String
+    Default: deploy
+    Description: S3 prefix for deployment artifacts
 
 Resources:
   ImageBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Ref SourceBucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
 
-  SupportingAccessPoint:
-    Type: AWS::S3::AccessPoint
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
     Properties:
-      Bucket: !Ref ImageBucket
-      Name: !Sub "${SourceBucketName}-ap"
+      RoleName: blind-watermark-lambda-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: S3ReadPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${SourceBucketName}/*"
 
   DependenciesLayer:
-    Type: AWS::Serverless::LayerVersion
+    Type: AWS::Lambda::LayerVersion
     Properties:
       LayerName: blind-watermark-deps
       Description: numpy, opencv-python-headless, Pillow
-      ContentUri: layer/
-      CompatibleRuntimes:
-        - python3.12
-    Metadata:
-      BuildMethod: makefile
-
-  SharedCodeLayer:
-    Type: AWS::Serverless::LayerVersion
-    Properties:
-      LayerName: blind-watermark-shared
-      Description: Shared watermark core logic
-      ContentUri: src/shared/
+      Content:
+        S3Bucket: !Ref ArtifactBucket
+        S3Key: !Sub "${ArtifactPrefix}/layer.zip"
       CompatibleRuntimes:
         - python3.12
 
   EmbedFunction:
-    Type: AWS::Serverless::Function
+    Type: AWS::Lambda::Function
     Properties:
       FunctionName: blind-watermark-embed
+      Runtime: python3.12
       Handler: app.lambda_handler
-      CodeUri: src/embed/
+      Code:
+        S3Bucket: !Ref ArtifactBucket
+        S3Key: !Sub "${ArtifactPrefix}/embed.zip"
       Layers:
         - !Ref DependenciesLayer
-        - !Ref SharedCodeLayer
-      Policies:
-        - S3CrudPolicy:
-            BucketName: !Ref SourceBucketName
-        - Statement:
-            - Effect: Allow
-              Action:
-                - s3-object-lambda:WriteGetObjectResponse
-              Resource: "*"
+      Role: !GetAtt LambdaExecutionRole.Arn
+      MemorySize: 2048
+      Timeout: 120
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          SOURCE_BUCKET: !Ref SourceBucketName
 
-  ObjectLambdaAccessPoint:
-    Type: AWS::S3ObjectLambda::AccessPoint
+  EmbedFunctionUrl:
+    Type: AWS::Lambda::Url
     Properties:
-      Name: !Sub "${SourceBucketName}-olap"
-      ObjectLambdaConfiguration:
-        SupportingAccessPoint: !GetAtt SupportingAccessPoint.Arn
-        TransformationConfigurations:
-          - Actions:
-              - GetObject
-            ContentTransformation:
-              AwsLambda:
-                FunctionArn: !GetAtt EmbedFunction.Arn
+      TargetFunctionArn: !Ref EmbedFunction
+      AuthType: AWS_IAM
+
+  EmbedFunctionUrlPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref EmbedFunction
+      Action: lambda:InvokeFunctionUrl
+      Principal: !Sub "${AWS::AccountId}"
+      FunctionUrlAuthType: AWS_IAM
 
   ExtractFunction:
-    Type: AWS::Serverless::Function
+    Type: AWS::Lambda::Function
     Properties:
       FunctionName: blind-watermark-extract
+      Runtime: python3.12
       Handler: app.lambda_handler
-      CodeUri: src/extract/
-      Timeout: 30
+      Code:
+        S3Bucket: !Ref ArtifactBucket
+        S3Key: !Sub "${ArtifactPrefix}/extract.zip"
       Layers:
         - !Ref DependenciesLayer
-        - !Ref SharedCodeLayer
-      Events:
-        ExtractApi:
-          Type: Api
-          Properties:
-            Path: /extract
-            Method: post
+      Role: !GetAtt LambdaExecutionRole.Arn
+      MemorySize: 2048
+      Timeout: 30
+      Architectures:
+        - x86_64
+
+  ExtractFunctionUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !Ref ExtractFunction
+      AuthType: AWS_IAM
+
+  ExtractFunctionUrlPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ExtractFunction
+      Action: lambda:InvokeFunctionUrl
+      Principal: !Sub "${AWS::AccountId}"
+      FunctionUrlAuthType: AWS_IAM
 
 Outputs:
-  ObjectLambdaAccessPointArn:
-    Description: S3 Object Lambda Access Point ARN
-    Value: !GetAtt ObjectLambdaAccessPoint.Arn
+  EmbedFunctionUrl:
+    Description: Embed function URL (IAM auth - use for watermarked retrieval)
+    Value: !GetAtt EmbedFunctionUrl.FunctionUrl
 
-  ExtractApiUrl:
-    Description: Extract API endpoint
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/extract"
+  EmbedFunctionArn:
+    Description: Embed function ARN
+    Value: !GetAtt EmbedFunction.Arn
+
+  ExtractFunctionUrl:
+    Description: Extract function URL (IAM auth - use for verification)
+    Value: !GetAtt ExtractFunctionUrl.FunctionUrl
+
+  ExtractFunctionArn:
+    Description: Extract function ARN
+    Value: !GetAtt ExtractFunction.Arn
 
   ImageBucketName:
     Description: Source image bucket

@@ -1,44 +1,41 @@
 import json
-import urllib.request
+import base64
+import os
 
 import boto3
 
 from watermark import embed
 
 s3_client = boto3.client("s3")
+SOURCE_BUCKET = os.environ.get("SOURCE_BUCKET", "blind-watermark-source-342367142984")
 
 
 def lambda_handler(event, context):
-    object_context = event["getObjectContext"]
-    request_route = object_context["outputRoute"]
-    request_token = object_context["outputToken"]
-    input_s3_url = object_context["inputS3Url"]
-
-    user_headers = event.get("userRequest", {}).get("headers", {})
-    user_id = user_headers.get("x-watermark-user-id", "anonymous")
-
     try:
-        response = urllib.request.urlopen(input_s3_url)
-        original_image = response.read()
+        body = json.loads(event.get("body", "{}"))
+        key = body.get("key")
+        user_id = body.get("user_id", "anonymous")
+
+        if not key:
+            return {
+                "statusCode": 400,
+                "body": json.dumps({"error": "Missing 'key' parameter"}),
+            }
+
+        response = s3_client.get_object(Bucket=SOURCE_BUCKET, Key=key)
+        original_image = response["Body"].read()
 
         watermarked_image = embed(original_image, user_id)
 
-        s3_client.write_get_object_response(
-            Body=watermarked_image,
-            RequestRoute=request_route,
-            RequestToken=request_token,
-            ContentType="image/png",
-            Metadata={"x-watermark-embedded": "true"},
-        )
-
-        return {"statusCode": 200}
+        return {
+            "statusCode": 200,
+            "headers": {"Content-Type": "image/png"},
+            "isBase64Encoded": True,
+            "body": base64.b64encode(watermarked_image).decode(),
+        }
 
     except Exception as e:
-        s3_client.write_get_object_response(
-            Body=json.dumps({"error": str(e)}).encode(),
-            RequestRoute=request_route,
-            RequestToken=request_token,
-            StatusCode=500,
-            ContentType="application/json",
-        )
-        return {"statusCode": 500}
+        return {
+            "statusCode": 500,
+            "body": json.dumps({"error": str(e)}),
+        }
