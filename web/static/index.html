@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blind Watermark</title>
+    <title>盲水印 - Blind Watermark</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -32,14 +32,15 @@
             return (
                 <div className="max-w-4xl mx-auto px-4 py-8">
                     <h1 className="text-3xl font-bold mb-1">
-                        <span className="text-accent">Blind</span> Watermark
+                        <span className="text-accent">盲水印</span> Blind Watermark
                     </h1>
-                    <p className="text-gray-500 mb-8">Invisible DCT watermarking - embed per-user ID, extract to trace leaks</p>
+                    <p className="text-gray-500 mb-8">基于 DCT 频域的不可见水印 - 嵌入用户 ID，提取追踪泄露源</p>
 
                     <div className="flex border-b border-dark-700 mb-8">
-                        <Tab active={tab === 'arch'} onClick={() => setTab('arch')}>Architecture</Tab>
-                        <Tab active={tab === 'embed'} onClick={() => setTab('embed')}>Embed</Tab>
-                        <Tab active={tab === 'extract'} onClick={() => setTab('extract')}>Extract</Tab>
+                        <Tab active={tab === 'arch'} onClick={() => setTab('arch')}>原理介绍</Tab>
+                        <Tab active={tab === 'embed'} onClick={() => setTab('embed')}>嵌入水印</Tab>
+                        <Tab active={tab === 'extract'} onClick={() => setTab('extract')}>提取水印</Tab>
+                        <a href="/static/dct.html" className="px-6 py-3 text-sm font-medium text-gray-500 hover:text-accent transition-all">DCT 白话解读 &rarr;</a>
                     </div>
 
                     {tab === 'arch' && <ArchPanel />}
@@ -95,21 +96,21 @@
 
             return (
                 <div className="bg-dark-800 border border-dark-700 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold mb-4">Embed invisible watermark</h3>
+                    <h3 className="text-lg font-semibold mb-4">嵌入不可见水印</h3>
 
                     <div className="mb-4">
-                        <label className="block text-sm text-gray-500 mb-1.5">User ID to embed</label>
+                        <label className="block text-sm text-gray-500 mb-1.5">要嵌入的用户 ID</label>
                         <input
                             type="text"
                             value={userId}
                             onChange={e => setUserId(e.target.value)}
-                            placeholder="e.g. user-123, alice@company.com"
+                            placeholder="例如 user-123, alice@company.com"
                             className="w-full px-4 py-2.5 bg-dark-900 border border-dark-700 rounded-lg text-gray-200 focus:border-accent focus:outline-none"
                         />
                     </div>
 
                     <div className="mb-4">
-                        <label className="block text-sm text-gray-500 mb-1.5">Image (PNG/JPG, min 256x256)</label>
+                        <label className="block text-sm text-gray-500 mb-1.5">上传图片（PNG/JPG，最小 256x256）</label>
                         <DropZone file={file} setFile={setFile} fileRef={fileRef} />
                     </div>
 
@@ -118,7 +119,7 @@
                         disabled={!file || loading}
                         className="px-6 py-2.5 bg-accent text-dark-900 font-semibold rounded-lg hover:bg-accent-dark disabled:bg-dark-700 disabled:text-gray-500 disabled:cursor-not-allowed transition-all"
                     >
-                        {loading ? <Spinner /> : 'Embed Watermark'}
+                        {loading ? <Spinner text="处理中..." /> : '嵌入水印'}
                     </button>
 
                     {error && (
@@ -130,17 +131,17 @@
                     {result && (
                         <div className="mt-6">
                             <div className="flex gap-8 mb-4">
-                                <Stat label="User ID embedded" value={result.user_id} />
-                                <Stat label="Original size" value={`${(result.original_size / 1024).toFixed(0)} KB`} />
+                                <Stat label="已嵌入用户 ID" value={result.user_id} />
+                                <Stat label="原始大小" value={`${(result.original_size / 1024).toFixed(0)} KB`} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <img src={URL.createObjectURL(file)} className="w-full rounded-lg border border-dark-700" />
-                                    <p className="text-center text-xs text-gray-500 mt-2">Original</p>
+                                    <p className="text-center text-xs text-gray-500 mt-2">原图</p>
                                 </div>
                                 <div>
                                     <img src={`data:image/png;base64,${result.image}`} className="w-full rounded-lg border border-dark-700" />
-                                    <p className="text-center text-xs text-gray-500 mt-2">Watermarked (invisible)</p>
+                                    <p className="text-center text-xs text-gray-500 mt-2">含水印（肉眼不可见）</p>
                                 </div>
                             </div>
                             <a
@@ -148,7 +149,7 @@
                                 download="watermarked.png"
                                 className="inline-block mt-3 text-accent hover:underline text-sm"
                             >
-                                Download watermarked image
+                                下载含水印图片
                             </a>
                         </div>
                     )}
@@ -185,10 +186,10 @@
 
             return (
                 <div className="bg-dark-800 border border-dark-700 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold mb-4">Extract watermark from image</h3>
+                    <h3 className="text-lg font-semibold mb-4">从图片中提取水印</h3>
 
                     <div className="mb-4">
-                        <label className="block text-sm text-gray-500 mb-1.5">Watermarked image</label>
+                        <label className="block text-sm text-gray-500 mb-1.5">上传含水印的图片</label>
                         <DropZone file={file} setFile={setFile} fileRef={fileRef} />
                     </div>
 
@@ -197,7 +198,7 @@
                         disabled={!file || loading}
                         className="px-6 py-2.5 bg-accent text-dark-900 font-semibold rounded-lg hover:bg-accent-dark disabled:bg-dark-700 disabled:text-gray-500 disabled:cursor-not-allowed transition-all"
                     >
-                        {loading ? <Spinner /> : 'Extract Watermark'}
+                        {loading ? <Spinner text="提取中..." /> : '提取水印'}
                     </button>
 
                     {error && (
@@ -208,9 +209,9 @@
 
                     {result && (
                         <div className="mt-4 p-4 bg-emerald-950/50 border border-accent/50 rounded-lg">
-                            <p className="text-xs text-gray-500">Extracted User ID</p>
+                            <p className="text-xs text-gray-500">提取到的用户 ID</p>
                             <p className="text-2xl text-accent font-bold mt-1">{result.user_id}</p>
-                            <p className="text-sm text-gray-500 mt-2">This user downloaded the image</p>
+                            <p className="text-sm text-gray-500 mt-2">该用户下载了此图片</p>
                         </div>
                     )}
                 </div>
@@ -221,127 +222,93 @@
             return (
                 <div className="space-y-6">
                     <div className="bg-dark-800 border border-dark-700 rounded-xl p-6">
-                        <h3 className="text-lg font-semibold mb-4">System Architecture</h3>
-                        <pre className="text-sm text-gray-300 bg-dark-900 p-4 rounded-lg overflow-x-auto font-mono leading-relaxed">{`
-  User Browser                     AWS (ap-northeast-1)
-  ============                     ====================
-
-  +------------------+             +---------------------------+
-  | blindwatermark.  | --HTTPS-->  | CloudFront (*.liucao.me)  |
-  | liucao.me       |             +---------------------------+
-  +------------------+                        |
-                                              v
-                                   +---------------------------+
-                                   | Private ALB Tokyo         |
-                                   | Host: blindwatermark...   |
-                                   +---------------------------+
-                                              |
-                                              v
-                                   +---------------------------+
-                                   | EC2 (Flask + Gunicorn)    |
-                                   | Port 8090                 |
-                                   +---------------------------+
-                                         |           |
-                            POST /api/embed    POST /api/extract
-                                         |           |
-                                         v           v
-                                   +----------+ +----------+
-                                   | Lambda:  | | Lambda:  |
-                                   | embed    | | extract  |
-                                   | (2GB)    | | (2GB)    |
-                                   +----------+ +----------+
-                                         |
-                                         v
-                                   +---------------------------+
-                                   | S3: original images       |
-                                   | (blind-watermark-source)  |
-                                   +---------------------------+
-`}</pre>
+                        <h3 className="text-lg font-semibold mb-4">系统架构</h3>
+                        <img src="/static/arch.svg" alt="架构图" className="w-full rounded-lg" />
                     </div>
 
                     <div className="bg-dark-800 border border-dark-700 rounded-xl p-6">
-                        <h3 className="text-lg font-semibold mb-4">How DCT Blind Watermarking Works</h3>
+                        <h3 className="text-lg font-semibold mb-4">DCT 盲水印工作原理</h3>
                         <div className="space-y-4 text-sm text-gray-300">
-                            <Step n="1" title="Convert to YCbCr">
-                                Image is converted from RGB to YCbCr color space. We work on the Y (luminance) channel because human eyes are less sensitive to small luminance changes.
+                            <Step n="1" title="转换为 YCbCr 色彩空间">
+                                将图片从 RGB 转换为 YCbCr。我们在 Y（亮度）通道上操作，因为人眼对亮度的微小变化不敏感。
                             </Step>
-                            <Step n="2" title="Split into 8x8 blocks">
-                                The Y channel is divided into 8x8 pixel blocks, same as JPEG compression uses internally.
+                            <Step n="2" title="分割为 8x8 像素块">
+                                将 Y 通道分割为 8x8 的像素块，与 JPEG 压缩内部使用的分块方式相同。
                             </Step>
-                            <Step n="3" title="Apply DCT (Discrete Cosine Transform)">
-                                Each block is transformed from spatial domain to frequency domain. Low frequencies = smooth areas, high frequencies = edges/detail.
+                            <Step n="3" title="应用 DCT（离散余弦变换）">
+                                将每个块从空间域变换到频率域。低频 = 平滑区域，高频 = 边缘/细节。
                             </Step>
-                            <Step n="4" title="Embed bits in mid-frequency coefficients">
-                                Each bit of the user ID is encoded by forcing a specific DCT coefficient to +50 (bit=1) or -50 (bit=0). Mid-frequency is chosen because it survives JPEG compression but isn't visible.
+                            <Step n="4" title="在中频系数中嵌入比特">
+                                将用户 ID 的每个比特编码到特定的 DCT 系数中：+50 表示 1，-50 表示 0。选择中频是因为它既能抵抗 JPEG 压缩，又不会被人眼察觉。
                             </Step>
-                            <Step n="5" title="5x redundancy for robustness">
-                                Each bit is written to 5 separate blocks. During extraction, majority voting recovers the correct bit even if some blocks are corrupted.
+                            <Step n="5" title="5 倍冗余保证鲁棒性">
+                                每个比特写入 5 个独立的块中。提取时通过多数投票恢复正确的比特值，即使部分块被损坏也能正确提取。
                             </Step>
-                            <Step n="6" title="Inverse DCT and reconstruct">
-                                Blocks are transformed back to spatial domain and the image is reconstructed. PSNR remains above 38dB (visually identical).
+                            <Step n="6" title="逆 DCT 并重建图像">
+                                将块变换回空间域并重建图像。PSNR 保持在 38dB 以上（与原图视觉上完全相同）。
                             </Step>
                         </div>
                     </div>
 
                     <div className="bg-dark-800 border border-dark-700 rounded-xl p-6">
-                        <h3 className="text-lg font-semibold mb-4">Demo Walkthrough</h3>
+                        <h3 className="text-lg font-semibold mb-4">演示步骤</h3>
                         <div className="space-y-3 text-sm text-gray-300">
                             <div className="flex gap-3 items-start">
                                 <span className="bg-accent text-dark-900 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">1</span>
-                                <div><strong>Go to Embed tab</strong> - Upload any image (PNG or JPG, minimum 256x256 pixels)</div>
+                                <div><strong>进入"嵌入水印"标签</strong> - 上传任意图片（PNG 或 JPG，最小 256x256 像素）</div>
                             </div>
                             <div className="flex gap-3 items-start">
                                 <span className="bg-accent text-dark-900 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">2</span>
-                                <div><strong>Enter a User ID</strong> - This simulates the requesting user's identity (e.g. "alice@company.com")</div>
+                                <div><strong>输入用户 ID</strong> - 模拟请求图片的用户身份（如 "alice@company.com"）</div>
                             </div>
                             <div className="flex gap-3 items-start">
                                 <span className="bg-accent text-dark-900 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">3</span>
-                                <div><strong>Click Embed</strong> - The image is sent to Lambda, watermarked invisibly, and returned. Compare original vs watermarked side-by-side (they look identical)</div>
+                                <div><strong>点击"嵌入水印"</strong> - 图片发送至 Lambda 进行不可见水印嵌入并返回。对比原图和水印图（肉眼看起来完全一样）</div>
                             </div>
                             <div className="flex gap-3 items-start">
                                 <span className="bg-accent text-dark-900 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">4</span>
-                                <div><strong>Download the watermarked image</strong> - Save it, even convert to JPEG, screenshot it, etc.</div>
+                                <div><strong>下载含水印的图片</strong> - 保存后可以转为 JPEG、截图等操作</div>
                             </div>
                             <div className="flex gap-3 items-start">
                                 <span className="bg-accent text-dark-900 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">5</span>
-                                <div><strong>Go to Extract tab</strong> - Upload the watermarked (or even JPEG-compressed) image</div>
+                                <div><strong>进入"提取水印"标签</strong> - 上传含水印的图片（甚至是 JPEG 压缩后的版本）</div>
                             </div>
                             <div className="flex gap-3 items-start">
                                 <span className="bg-accent text-dark-900 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">6</span>
-                                <div><strong>Click Extract</strong> - The hidden User ID is recovered from the image, revealing who originally downloaded it</div>
+                                <div><strong>点击"提取水印"</strong> - 从图片中恢复隐藏的用户 ID，追溯图片的下载者</div>
                             </div>
                         </div>
                     </div>
 
                     <div className="bg-dark-800 border border-dark-700 rounded-xl p-6">
-                        <h3 className="text-lg font-semibold mb-4">Properties</h3>
+                        <h3 className="text-lg font-semibold mb-4">技术指标</h3>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div className="bg-dark-900 rounded-lg p-3">
-                                <p className="text-gray-500">Visual Quality</p>
+                                <p className="text-gray-500">视觉质量</p>
                                 <p className="text-accent text-lg">PSNR > 38dB</p>
-                                <p className="text-gray-500 text-xs">Indistinguishable from original</p>
+                                <p className="text-gray-500 text-xs">与原图无法区分</p>
                             </div>
                             <div className="bg-dark-900 rounded-lg p-3">
-                                <p className="text-gray-500">JPEG Robustness</p>
-                                <p className="text-accent text-lg">Quality 80+</p>
-                                <p className="text-gray-500 text-xs">Survives compression</p>
+                                <p className="text-gray-500">JPEG 鲁棒性</p>
+                                <p className="text-accent text-lg">质量 80+</p>
+                                <p className="text-gray-500 text-xs">可抵抗压缩</p>
                             </div>
                             <div className="bg-dark-900 rounded-lg p-3">
-                                <p className="text-gray-500">Detection</p>
-                                <p className="text-accent text-lg">Blind</p>
-                                <p className="text-gray-500 text-xs">No original image needed</p>
+                                <p className="text-gray-500">检测方式</p>
+                                <p className="text-accent text-lg">盲提取</p>
+                                <p className="text-gray-500 text-xs">无需原图即可提取</p>
                             </div>
                             <div className="bg-dark-900 rounded-lg p-3">
-                                <p className="text-gray-500">Payload</p>
-                                <p className="text-accent text-lg">Up to 64 chars</p>
-                                <p className="text-gray-500 text-xs">Per-user ID string</p>
+                                <p className="text-gray-500">载荷容量</p>
+                                <p className="text-accent text-lg">最长 64 字符</p>
+                                <p className="text-gray-500 text-xs">支持任意用户 ID 字符串</p>
                             </div>
                         </div>
                     </div>
 
                     <div className="text-center">
                         <a href="https://github.com/tsaol/blind-watermark-s3" target="_blank" className="text-accent hover:underline text-sm">
-                            View source on GitHub
+                            GitHub 源代码
                         </a>
                     </div>
                 </div>
@@ -378,7 +345,7 @@
                         {file ? (
                             <p className="text-accent">{file.name}</p>
                         ) : (
-                            <p className="text-gray-500">Drop image here or click to browse</p>
+                            <p className="text-gray-500">拖拽图片到此处或点击选择文件</p>
                         )}
                     </div>
                     <input
@@ -401,11 +368,11 @@
             );
         }
 
-        function Spinner() {
+        function Spinner({ text }) {
             return (
                 <span className="inline-flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-dark-700 border-t-accent rounded-full animate-spin"></span>
-                    Processing...
+                    {text}
                 </span>
             );
         }

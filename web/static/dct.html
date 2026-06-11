@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DCT 白话解读 - 盲水印</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { 900: '#0f1419', 800: '#1a1f25', 700: '#2f3336' },
+                        accent: { DEFAULT: '#00e5a0', dark: '#00cc8c' }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-dark-900 text-gray-200 min-h-screen">
+    <div class="max-w-3xl mx-auto px-4 py-8">
+        <a href="/static/index.html" class="text-accent text-sm hover:underline">&larr; 返回主页</a>
+
+        <h1 class="text-3xl font-bold mt-6 mb-2">
+            <span class="text-accent">DCT</span> 白话解读
+        </h1>
+        <p class="text-gray-500 mb-10">用人话讲清楚：离散余弦变换是什么，盲水印怎么用它</p>
+
+        <div class="space-y-8">
+
+            <!-- Section 1 -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4">DCT 到底是什么？一个音乐厅的类比</h2>
+                <div class="space-y-4 text-sm text-gray-300 leading-relaxed">
+                    <p>先忘掉所有数学公式。</p>
+                    <p>想象你站在一个音乐厅里，管弦乐队正在演奏。你听到的是"一首曲子"——这是<strong class="text-gray-200">空间域</strong>，也就是你的耳朵直接感知到的混合声音。</p>
+                    <p>但指挥看到的是什么？他看到的是<strong class="text-gray-200">乐谱</strong>：第一小提琴在拉 A4，大提琴在拉低八度的 C，长笛在吹高音 E……每个乐器的贡献被分开写在不同的声部上。</p>
+                    <p>这就是<strong class="text-accent">DCT（离散余弦变换）</strong>干的事：它是那个指挥，把"混在一起的声音"拆成"各个频率的贡献"。</p>
+                </div>
+            </section>
+
+            <!-- Section 2 -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4">放到图片上：像素就是"混合声音"</h2>
+                <div class="space-y-4 text-sm text-gray-300 leading-relaxed">
+                    <p>一张图片就是一堆像素值。每个像素只知道自己的亮度（比如 128），就像你耳朵只听到"此刻这个音量"。</p>
+                    <p>DCT 对一个 8x8 的像素块做变换后，得到的不再是"64 个像素值"，而是"64 个频率分量"：</p>
+                    <div class="bg-dark-900 rounded-lg p-4 my-3">
+                        <p class="text-gray-400 mb-2">变换后的 64 个位置，每个代表一种"图案"：</p>
+                        <ul class="space-y-1 list-none">
+                            <li><span class="text-accent">左上角 (0,0)</span> — 整块的平均亮度（相当于乐队的总音量）</li>
+                            <li><span class="text-accent">靠左上的位置</span> — 缓慢变化的大色块（低频，像大提琴的低音）</li>
+                            <li><span class="text-accent">中间位置</span> — 中等细节的纹理（中频，像人声）</li>
+                            <li><span class="text-accent">右下角</span> — 极细的边缘和噪点（高频，像铙钹的尖响）</li>
+                        </ul>
+                    </div>
+                    <p>关键洞察：<strong class="text-gray-200">人眼对中频最不敏感</strong>。低频是大面积色块，改了你一眼就看出来；高频是细节边缘，改了也容易发现。但中频？它藏在"有点细节但又不太细"的模糊地带——改动 &plusmn;50 你根本看不出来。</p>
+                </div>
+            </section>
+
+            <!-- Section 3 -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4">盲水印怎么利用这一点？</h2>
+                <div class="space-y-4 text-sm text-gray-300 leading-relaxed">
+                    <p>现在你理解了 DCT，盲水印的逻辑就很简单了：</p>
+
+                    <div class="bg-dark-900 rounded-lg p-4 my-3">
+                        <p class="font-semibold text-gray-200 mb-2">嵌入（写入秘密）：</p>
+                        <p>把用户 ID 转成二进制：<code class="text-accent">alice</code> &rarr; <code class="text-accent">01100001 01101100 ...</code></p>
+                        <p class="mt-2">对图片的每个 8x8 块做 DCT，然后：</p>
+                        <ul class="mt-1 space-y-1 list-none">
+                            <li>要写入 <strong>1</strong> &rarr; 把中频系数强制设为 <span class="text-accent">+50</span></li>
+                            <li>要写入 <strong>0</strong> &rarr; 把中频系数强制设为 <span class="text-accent">-50</span></li>
+                        </ul>
+                        <p class="mt-2">然后做逆变换（IDCT），把频率域变回像素域。搞定，图片看起来没变。</p>
+                    </div>
+
+                    <div class="bg-dark-900 rounded-lg p-4 my-3">
+                        <p class="font-semibold text-gray-200 mb-2">提取（读出秘密）：</p>
+                        <p>拿到一张可疑图片，对每个 8x8 块做 DCT，看中频系数：</p>
+                        <ul class="mt-1 space-y-1 list-none">
+                            <li>系数 &gt; 0 &rarr; 读出 <strong>1</strong></li>
+                            <li>系数 &lt; 0 &rarr; 读出 <strong>0</strong></li>
+                        </ul>
+                        <p class="mt-2">拼回来就是用户 ID。<strong class="text-gray-200">不需要原图</strong>——这就是"盲"提取的含义。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 4 -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4">为什么能抗 JPEG 压缩？</h2>
+                <div class="space-y-4 text-sm text-gray-300 leading-relaxed">
+                    <p>这是最精妙的部分。</p>
+                    <p>JPEG 压缩本身就用 DCT！它的压缩策略是：<strong class="text-gray-200">保留低频和中频，大幅削减高频</strong>（因为高频是噪点和极细边缘，去掉影响不大）。</p>
+                    <p>所以我们的水印写在中频——恰好是 JPEG 保留的区域。就像把秘密写在保险箱里，而 JPEG 压缩只扔掉保险箱外面的东西。</p>
+                    <p class="bg-dark-900 rounded-lg p-3 mt-2">
+                        <span class="text-gray-500">类比：</span>你在一本书的<strong class="text-gray-200">正文</strong>里藏了暗号（中频）。有人复印这本书时（JPEG 压缩），他会省略封面花纹（高频），但正文一定会完整复印。你的暗号安然无恙。
+                    </p>
+                </div>
+            </section>
+
+            <!-- Section 5 -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4">5 倍冗余：民主投票对抗噪声</h2>
+                <div class="space-y-4 text-sm text-gray-300 leading-relaxed">
+                    <p>现实中，即使中频系数不会被 JPEG 删除，也可能被轻微扰动（压缩量化会让 +50 变成 +47 或 +52）。如果刚好从 +2 被扰动到 -1，这一位就读错了。</p>
+                    <p>解决方案很暴力：<strong class="text-gray-200">每个比特写 5 次</strong>，分散在不同的块里。提取时 5 票投票，少数服从多数。</p>
+                    <p class="bg-dark-900 rounded-lg p-3 mt-2">
+                        <span class="text-gray-500">数字举例：</span>同一个 bit 写在 5 个块里，JPEG 压缩后读出来是 [+42, +38, -3, +45, +40]。投票结果：4 正 1 负 &rarr; 判定为 <strong class="text-accent">1</strong>。那个被扰动到 -3 的"错票"被多数票纠正了。
+                    </p>
+                    <p>代价是什么？需要 5 倍的块来存储同样长度的信息。一张 512x512 的图有 4096 个 8x8 块，除以 5 再除以 8（每字节 8 bit），能存约 100 个字符——对用户 ID 绰绰有余。</p>
+                </div>
+            </section>
+
+            <!-- Summary -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4">一句话总结</h2>
+                <p class="text-base text-gray-200 leading-relaxed">
+                    DCT 把图片从"像素"翻译成"频率"，水印写在人眼看不见、JPEG 删不掉的中频位置，5 倍冗余投票纠错。不需要原图就能提取——这就是盲水印。
+                </p>
+            </section>
+
+        </div>
+
+        <div class="mt-10 pt-6 border-t border-dark-700 text-center text-sm text-gray-500">
+            <a href="/static/index.html" class="text-accent hover:underline">&larr; 返回演示页面</a>
+        </div>
+    </div>
+</body>
+</html>
