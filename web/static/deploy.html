@@ -29,6 +29,28 @@
 
         <div class="space-y-8">
 
+            <!-- One-click deploy -->
+            <section class="bg-dark-800 border border-accent/50 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-1 text-accent">一键部署</h2>
+                <p class="text-gray-500 text-sm mb-4">两条命令搞定全部</p>
+                <div class="bg-dark-900 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto space-y-1">
+                    <p>git clone https://github.com/tsaol/blind-watermark-s3.git</p>
+                    <p>cd blind-watermark-s3</p>
+                    <p>./deploy.sh</p>
+                </div>
+                <div class="mt-4 text-sm text-gray-400">
+                    <p>脚本会自动完成：构建 Layer、打包代码、上传 S3、部署 CloudFormation、验证结果。</p>
+                    <p class="mt-2">可选环境变量：</p>
+                    <div class="bg-dark-900 rounded-lg p-3 mt-2 font-mono text-xs text-gray-400">
+                        <p>AWS_DEFAULT_REGION=ap-northeast-1  # 部署区域（默认东京）</p>
+                        <p>STACK_NAME=blind-watermark          # CloudFormation 栈名</p>
+                        <p>ARTIFACT_BUCKET=my-bucket           # 构建产物桶（自动创建）</p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="text-center text-gray-600 text-sm py-2">&#8595; 如果你想了解每一步的细节 &#8595;</div>
+
             <!-- Prerequisites -->
             <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
                 <h2 class="text-xl font-semibold mb-4">前置条件</h2>
