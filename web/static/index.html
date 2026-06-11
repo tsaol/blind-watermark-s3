@@ -41,6 +41,7 @@
                         <Tab active={tab === 'embed'} onClick={() => setTab('embed')}>嵌入水印</Tab>
                         <Tab active={tab === 'extract'} onClick={() => setTab('extract')}>提取水印</Tab>
                         <a href="/static/dct.html" className="px-6 py-3 text-sm font-medium text-gray-500 hover:text-accent transition-all">DCT 白话解读 &rarr;</a>
+                        <a href="/static/cost.html" className="px-6 py-3 text-sm font-medium text-gray-500 hover:text-accent transition-all">成本估算 &rarr;</a>
                     </div>
 
                     {tab === 'arch' && <ArchPanel />}

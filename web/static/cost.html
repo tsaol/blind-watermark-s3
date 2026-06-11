@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成本估算 - 盲水印</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { 900: '#0f1419', 800: '#1a1f25', 700: '#2f3336' },
+                        accent: { DEFAULT: '#00e5a0', dark: '#00cc8c' }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-dark-900 text-gray-200 min-h-screen">
+    <div class="max-w-3xl mx-auto px-4 py-8">
+        <a href="/static/index.html" class="text-accent text-sm hover:underline">&larr; 返回主页</a>
+
+        <h1 class="text-3xl font-bold mt-6 mb-2">
+            <span class="text-accent">成本估算</span>
+        </h1>
+        <p class="text-gray-500 mb-10">这个方案到底花多少钱？答案是：几乎不花钱。</p>
+
+        <div class="space-y-8">
+
+            <!-- Architecture overview -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4">用了哪些 AWS 资源</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-dark-700 text-left">
+                                <th class="py-2 pr-4 text-gray-400">资源</th>
+                                <th class="py-2 pr-4 text-gray-400">用途</th>
+                                <th class="py-2 text-gray-400">计费方式</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-gray-300">
+                            <tr class="border-b border-dark-700/50">
+                                <td class="py-3 pr-4 font-medium text-gray-200">Lambda x 2</td>
+                                <td class="py-3 pr-4">嵌入水印 + 提取水印</td>
+                                <td class="py-3">按调用次数 + 执行时间</td>
+                            </tr>
+                            <tr class="border-b border-dark-700/50">
+                                <td class="py-3 pr-4 font-medium text-gray-200">S3</td>
+                                <td class="py-3 pr-4">存储原始图片</td>
+                                <td class="py-3">按存储量 + 请求数</td>
+                            </tr>
+                            <tr class="border-b border-dark-700/50">
+                                <td class="py-3 pr-4 font-medium text-gray-200">EC2 (共享)</td>
+                                <td class="py-3 pr-4">Web 服务 (Flask)</td>
+                                <td class="py-3">已有实例，无增量成本</td>
+                            </tr>
+                            <tr class="border-b border-dark-700/50">
+                                <td class="py-3 pr-4 font-medium text-gray-200">ALB (共享)</td>
+                                <td class="py-3 pr-4">路由请求</td>
+                                <td class="py-3">已有负载均衡器，无增量成本</td>
+                            </tr>
+                            <tr>
+                                <td class="py-3 pr-4 font-medium text-gray-200">CloudFront (共享)</td>
+                                <td class="py-3 pr-4">HTTPS 入口</td>
+                                <td class="py-3">已有分发，无增量成本</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Free tier -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4">Lambda 免费额度（每月）</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-dark-900 rounded-lg p-4 text-center">
+                        <p class="text-2xl font-bold text-accent">100 万次</p>
+                        <p class="text-gray-500 text-sm mt-1">免费请求数</p>
+                    </div>
+                    <div class="bg-dark-900 rounded-lg p-4 text-center">
+                        <p class="text-2xl font-bold text-accent">400,000 GB-s</p>
+                        <p class="text-gray-500 text-sm mt-1">免费计算时间</p>
+                    </div>
+                </div>
+                <p class="text-gray-400 text-sm mt-4">本方案每次调用约 2048MB 内存、3 秒执行时间 = 6 GB-s。免费额度可支撑约 <strong class="text-gray-200">66,000 次</strong>水印操作/月。</p>
+            </section>
+
+            <!-- Scenario comparison -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4">不同场景的月费用</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-dark-700 text-left">
+                                <th class="py-2 pr-4 text-gray-400">场景</th>
+                                <th class="py-2 pr-4 text-gray-400">调用量</th>
+                                <th class="py-2 pr-4 text-gray-400">Lambda</th>
+                                <th class="py-2 pr-4 text-gray-400">S3</th>
+                                <th class="py-2 text-gray-400">总计</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-gray-300">
+                            <tr class="border-b border-dark-700/50">
+                                <td class="py-3 pr-4 font-medium text-gray-200">演示/测试</td>
+                                <td class="py-3 pr-4">~100 次</td>
+                                <td class="py-3 pr-4 text-accent">$0</td>
+                                <td class="py-3 pr-4">$0.01</td>
+                                <td class="py-3 font-bold text-accent">~$0</td>
+                            </tr>
+                            <tr class="border-b border-dark-700/50">
+                                <td class="py-3 pr-4 font-medium text-gray-200">小型团队</td>
+                                <td class="py-3 pr-4">1,000 次</td>
+                                <td class="py-3 pr-4 text-accent">$0</td>
+                                <td class="py-3 pr-4">$0.05</td>
+                                <td class="py-3 font-bold text-accent">~$0.05</td>
+                            </tr>
+                            <tr class="border-b border-dark-700/50">
+                                <td class="py-3 pr-4 font-medium text-gray-200">中等使用</td>
+                                <td class="py-3 pr-4">10,000 次</td>
+                                <td class="py-3 pr-4 text-accent">$0</td>
+                                <td class="py-3 pr-4">$0.50</td>
+                                <td class="py-3 font-bold text-accent">~$0.50</td>
+                            </tr>
+                            <tr>
+                                <td class="py-3 pr-4 font-medium text-gray-200">高负载</td>
+                                <td class="py-3 pr-4">100,000 次</td>
+                                <td class="py-3 pr-4">$3.40</td>
+                                <td class="py-3 pr-4">$5.00</td>
+                                <td class="py-3 font-bold text-gray-200">~$8.40</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-gray-500 text-sm mt-4">* EC2/ALB/CloudFront 为共享基础设施，不计入增量成本</p>
+            </section>
+
+            <!-- Concrete example -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4">具体例子：一家 50 人公司</h2>
+                <div class="space-y-4 text-sm text-gray-300 leading-relaxed">
+                    <div class="bg-dark-900 rounded-lg p-4">
+                        <p class="font-semibold text-gray-200 mb-2">场景</p>
+                        <p>公司有 50 个员工，每人每天下载 5 张内部图片（产品图、设计稿等），系统自动嵌入水印追踪。</p>
+                    </div>
+
+                    <div class="bg-dark-900 rounded-lg p-4">
+                        <p class="font-semibold text-gray-200 mb-2">计算</p>
+                        <ul class="space-y-1 list-none">
+                            <li>每月调用：50 人 x 5 张 x 22 天 = <strong class="text-accent">5,500 次</strong></li>
+                            <li>Lambda 计算：5,500 x 6 GB-s = 33,000 GB-s &lt; 400,000 免费额度</li>
+                            <li>S3 存储：假设平均 2MB/图，共 100 张原图 = 200MB</li>
+                            <li>S3 请求：5,500 GET + 5,500 PUT = 11,000 次</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-dark-900 rounded-lg p-4">
+                        <p class="font-semibold text-gray-200 mb-2">月费用</p>
+                        <ul class="space-y-1 list-none">
+                            <li>Lambda：<span class="text-accent">$0</span>（在免费额度内）</li>
+                            <li>S3 存储：200MB x $0.025/GB = <span class="text-accent">$0.005</span></li>
+                            <li>S3 请求：11,000 x $0.0000004 = <span class="text-accent">$0.004</span></li>
+                            <li class="pt-2 border-t border-dark-700 font-semibold text-gray-200">总计：不到 $0.01/月</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Another example -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4">另一个例子：图片版权保护平台</h2>
+                <div class="space-y-4 text-sm text-gray-300 leading-relaxed">
+                    <div class="bg-dark-900 rounded-lg p-4">
+                        <p class="font-semibold text-gray-200 mb-2">场景</p>
+                        <p>一个摄影素材网站，500 个付费用户，每人每天下载 10 张高清图。网站需要追踪谁泄露了图片。</p>
+                    </div>
+
+                    <div class="bg-dark-900 rounded-lg p-4">
+                        <p class="font-semibold text-gray-200 mb-2">计算</p>
+                        <ul class="space-y-1 list-none">
+                            <li>每月调用：500 人 x 10 张 x 30 天 = <strong class="text-accent">150,000 次</strong></li>
+                            <li>Lambda 计算：150,000 x 6 GB-s = 900,000 GB-s</li>
+                            <li>超出免费额度：900,000 - 400,000 = 500,000 GB-s</li>
+                            <li>S3 存储：10,000 张原图 x 5MB = 50GB</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-dark-900 rounded-lg p-4">
+                        <p class="font-semibold text-gray-200 mb-2">月费用</p>
+                        <ul class="space-y-1 list-none">
+                            <li>Lambda 请求：50,000 x $0.20/百万 = <span class="text-accent">$0.01</span></li>
+                            <li>Lambda 计算：500,000 GB-s x $0.0000166667 = <span class="text-accent">$8.33</span></li>
+                            <li>S3 存储：50GB x $0.025 = <span class="text-accent">$1.25</span></li>
+                            <li>S3 请求：300,000 x $0.0000004 = <span class="text-accent">$0.12</span></li>
+                            <li class="pt-2 border-t border-dark-700 font-semibold text-gray-200">总计：约 $9.71/月</li>
+                        </ul>
+                    </div>
+
+                    <p class="text-gray-400">对比商业水印 SaaS 每月几百到几千美金的订阅费，自建方案便宜得多。</p>
+                </div>
+            </section>
+
+            <!-- Why so cheap -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4">为什么这么便宜？</h2>
+                <div class="space-y-3 text-sm text-gray-300 leading-relaxed">
+                    <div class="flex items-start gap-3">
+                        <span class="text-accent font-bold text-lg">1</span>
+                        <div>
+                            <p class="font-medium text-gray-200">Serverless 架构</p>
+                            <p class="text-gray-400">不用的时候不花钱。没有请求 = 没有费用。不需要 24/7 运行的服务器。</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="text-accent font-bold text-lg">2</span>
+                        <div>
+                            <p class="font-medium text-gray-200">Lambda 免费额度大</p>
+                            <p class="text-gray-400">每月 100 万次请求 + 400K GB-s 免费。绝大多数用例完全不超。</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="text-accent font-bold text-lg">3</span>
+                        <div>
+                            <p class="font-medium text-gray-200">共享基础设施</p>
+                            <p class="text-gray-400">EC2、ALB、CloudFront 是已有的共享资源，不产生增量成本。</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="text-accent font-bold text-lg">4</span>
+                        <div>
+                            <p class="font-medium text-gray-200">纯算法，无外部依赖</p>
+                            <p class="text-gray-400">水印算法只用 numpy + opencv，不调用任何付费 AI/ML 服务。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <div class="mt-10 pt-6 border-t border-dark-700 text-center text-sm text-gray-500">
+            <a href="/static/index.html" class="text-accent hover:underline">&larr; 返回演示页面</a>
+        </div>
+    </div>
+</body>
+</html>
