@@ -259,51 +259,6 @@
                 </div>
             </section>
 
-            <!-- Limitations -->
-            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
-                <h2 class="text-xl font-semibold mb-4">已知限制</h2>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-b border-dark-700 text-left">
-                                <th class="py-2 pr-4 text-gray-400">限制</th>
-                                <th class="py-2 text-gray-400">详情</th>
-                            </tr>
-                        </thead>
-                        <tbody class="text-gray-300">
-                            <tr class="border-b border-dark-700/50">
-                                <td class="py-3 pr-4 font-medium text-gray-200">图片尺寸</td>
-                                <td class="py-3">最小 256x256 像素，更小的图没有足够的 8x8 块来存储 ID</td>
-                            </tr>
-                            <tr class="border-b border-dark-700/50">
-                                <td class="py-3 pr-4 font-medium text-gray-200">JPEG 质量</td>
-                                <td class="py-3">quality &ge; 70 可提取；低于 50 开始失败</td>
-                            </tr>
-                            <tr class="border-b border-dark-700/50">
-                                <td class="py-3 pr-4 font-medium text-gray-200">裁剪</td>
-                                <td class="py-3">裁掉超过 50% 的画面会丢失太多块</td>
-                            </tr>
-                            <tr class="border-b border-dark-700/50">
-                                <td class="py-3 pr-4 font-medium text-gray-200">缩放</td>
-                                <td class="py-3">缩放会破坏 8x8 块对齐，提取失败</td>
-                            </tr>
-                            <tr class="border-b border-dark-700/50">
-                                <td class="py-3 pr-4 font-medium text-gray-200">截图</td>
-                                <td class="py-3">截图 + 重新保存 = 缩放 + 重压缩，大概率失败</td>
-                            </tr>
-                            <tr class="border-b border-dark-700/50">
-                                <td class="py-3 pr-4 font-medium text-gray-200">载荷容量</td>
-                                <td class="py-3">512x512 图约存 100 字符；图越大存越多</td>
-                            </tr>
-                            <tr>
-                                <td class="py-3 pr-4 font-medium text-gray-200">对抗攻击</td>
-                                <td class="py-3">不防知道算法细节的主动攻击者</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <p class="mt-4 text-sm text-gray-400">适用场景：追踪内部泄露（有人把文件分享出去）。不适用：防御专业攻击者主动去除水印。</p>
-            </section>
 
             <!-- Why so cheap -->
             <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
