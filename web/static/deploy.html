@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>部署指南 - 盲水印</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { 900: '#0f1419', 800: '#1a1f25', 700: '#2f3336' },
+                        accent: { DEFAULT: '#00e5a0', dark: '#00cc8c' }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-dark-900 text-gray-200 min-h-screen">
+    <div class="max-w-3xl mx-auto px-4 py-8">
+        <a href="/static/index.html" class="text-accent text-sm hover:underline">&larr; 返回主页</a>
+
+        <h1 class="text-3xl font-bold mt-6 mb-2">
+            <span class="text-accent">部署指南</span>
+        </h1>
+        <p class="text-gray-500 mb-10">从零开始部署盲水印方案到你的 AWS 账号</p>
+
+        <div class="space-y-8">
+
+            <!-- Prerequisites -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4">前置条件</h2>
+                <div class="space-y-3 text-sm text-gray-300">
+                    <ul class="space-y-2 list-none">
+                        <li class="flex items-start gap-2">
+                            <span class="text-accent mt-0.5">&#10003;</span>
+                            <span>AWS 账号，具备 CloudFormation / Lambda / S3 / IAM 权限</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-accent mt-0.5">&#10003;</span>
+                            <span>AWS CLI 已安装并配置（<code class="text-accent">aws configure</code>）</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-accent mt-0.5">&#10003;</span>
+                            <span>Python 3.12+</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-accent mt-0.5">&#10003;</span>
+                            <span>一台 EC2 实例（用于 Web 服务，可选）</span>
+                        </li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Step 1 -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-1">Step 1: 克隆仓库</h2>
+                <p class="text-gray-500 text-sm mb-4">获取源代码</p>
+                <div class="bg-dark-900 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto">
+                    <p>git clone https://github.com/tsaol/blind-watermark-s3.git</p>
+                    <p>cd blind-watermark-s3</p>
+                </div>
+            </section>
+
+            <!-- Step 2 -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-1">Step 2: 构建 Lambda Layer</h2>
+                <p class="text-gray-500 text-sm mb-4">打包 numpy + opencv 依赖</p>
+                <div class="bg-dark-900 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto space-y-1">
+                    <p># 创建构建目录</p>
+                    <p>mkdir -p build/layer/python</p>
+                    <p></p>
+                    <p># 安装依赖到 layer 目录</p>
+                    <p>pip install numpy opencv-python-headless Pillow \</p>
+                    <p>&nbsp;&nbsp;-t build/layer/python \</p>
+                    <p>&nbsp;&nbsp;--platform manylinux2014_x86_64 \</p>
+                    <p>&nbsp;&nbsp;--only-binary=:all:</p>
+                    <p></p>
+                    <p># 打包为 zip</p>
+                    <p>cd build/layer && zip -r9 ../../layer.zip python/</p>
+                    <p>cd ../..</p>
+                </div>
+            </section>
+
+            <!-- Step 3 -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-1">Step 3: 上传部署产物到 S3</h2>
+                <p class="text-gray-500 text-sm mb-4">Lambda 代码和 Layer 需要先上传到 S3</p>
+                <div class="bg-dark-900 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto space-y-1">
+                    <p># 设定变量</p>
+                    <p>REGION=ap-northeast-1</p>
+                    <p>BUCKET=your-artifact-bucket  # 替换为你的桶名</p>
+                    <p></p>
+                    <p># 创建 S3 桶（如果不存在）</p>
+                    <p>aws s3 mb s3://$BUCKET --region $REGION</p>
+                    <p></p>
+                    <p># 打包 Lambda 代码</p>
+                    <p>cd src/embed && zip -r ../../embed.zip . && cd ../..</p>
+                    <p>cd src/extract && zip -r ../../extract.zip . && cd ../..</p>
+                    <p></p>
+                    <p># 复制 shared watermark.py 到两个函数</p>
+                    <p>cp src/shared/watermark.py src/embed/</p>
+                    <p>cp src/shared/watermark.py src/extract/</p>
+                    <p></p>
+                    <p># 上传到 S3</p>
+                    <p>aws s3 cp layer.zip s3://$BUCKET/deploy/layer.zip --region $REGION</p>
+                    <p>aws s3 cp embed.zip s3://$BUCKET/deploy/embed.zip --region $REGION</p>
+                    <p>aws s3 cp extract.zip s3://$BUCKET/deploy/extract.zip --region $REGION</p>
+                </div>
+            </section>
+
+            <!-- Step 4 -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-1">Step 4: 部署 CloudFormation Stack</h2>
+                <p class="text-gray-500 text-sm mb-4">一键创建所有 AWS 资源</p>
+                <div class="bg-dark-900 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto space-y-1">
+                    <p>aws cloudformation deploy \</p>
+                    <p>&nbsp;&nbsp;--template-file template.yaml \</p>
+                    <p>&nbsp;&nbsp;--stack-name blind-watermark \</p>
+                    <p>&nbsp;&nbsp;--capabilities CAPABILITY_NAMED_IAM \</p>
+                    <p>&nbsp;&nbsp;--region $REGION \</p>
+                    <p>&nbsp;&nbsp;--parameter-overrides \</p>
+                    <p>&nbsp;&nbsp;&nbsp;&nbsp;ArtifactBucket=$BUCKET \</p>
+                    <p>&nbsp;&nbsp;&nbsp;&nbsp;ArtifactPrefix=deploy</p>
+                </div>
+                <div class="mt-4 text-sm text-gray-400">
+                    <p>这会创建：</p>
+                    <ul class="mt-2 space-y-1 list-none">
+                        <li>&#8226; S3 桶（存储原始图片）</li>
+                        <li>&#8226; Lambda 函数 x 2（嵌入 + 提取）</li>
+                        <li>&#8226; Lambda Function URLs（IAM 认证）</li>
+                        <li>&#8226; IAM Role + Policy</li>
+                        <li>&#8226; Lambda Layer（numpy + opencv）</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Step 5 -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-1">Step 5: 验证部署</h2>
+                <p class="text-gray-500 text-sm mb-4">确认 Lambda 函数已正确创建</p>
+                <div class="bg-dark-900 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto space-y-1">
+                    <p># 列出函数</p>
+                    <p>aws lambda list-functions --region $REGION \</p>
+                    <p>&nbsp;&nbsp;--query 'Functions[?starts_with(FunctionName,`blind-watermark`)].FunctionName'</p>
+                    <p></p>
+                    <p># 应输出:</p>
+                    <p># ["blind-watermark-embed", "blind-watermark-extract"]</p>
+                </div>
+            </section>
+
+            <!-- Step 6 -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-1">Step 6: 测试水印功能</h2>
+                <p class="text-gray-500 text-sm mb-4">用 CLI 直接测试嵌入和提取</p>
+                <div class="bg-dark-900 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto space-y-1">
+                    <p># 上传一张测试图片到 S3</p>
+                    <p>aws s3 cp test.jpg s3://YOUR-SOURCE-BUCKET/tmp/test.jpg \</p>
+                    <p>&nbsp;&nbsp;--region $REGION</p>
+                    <p></p>
+                    <p># 调用嵌入 Lambda</p>
+                    <p>aws lambda invoke --function-name blind-watermark-embed \</p>
+                    <p>&nbsp;&nbsp;--region $REGION \</p>
+                    <p>&nbsp;&nbsp;--payload '{"body":"{\"key\":\"tmp/test.jpg\",\"user_id\":\"alice\"}"}' \</p>
+                    <p>&nbsp;&nbsp;output.json</p>
+                    <p></p>
+                    <p># output.json 包含 base64 编码的水印图片</p>
+                    <p># 解码并保存</p>
+                    <p>python3 -c "
+import json, base64
+data = json.load(open('output.json'))
+img = base64.b64decode(data['body'])
+open('watermarked.png','wb').write(img)
+print('Saved watermarked.png')
+"</p>
+                    <p></p>
+                    <p># 调用提取 Lambda</p>
+                    <p>python3 -c "
+import json, base64, subprocess
+img_b64 = base64.b64encode(open('watermarked.png','rb').read()).decode()
+payload = json.dumps({'body': json.dumps({'image': img_b64})})
+open('/tmp/extract_payload.json','w').write(payload)
+" </p>
+                    <p>aws lambda invoke --function-name blind-watermark-extract \</p>
+                    <p>&nbsp;&nbsp;--region $REGION \</p>
+                    <p>&nbsp;&nbsp;--payload file:///tmp/extract_payload.json \</p>
+                    <p>&nbsp;&nbsp;extract_result.json</p>
+                    <p></p>
+                    <p>cat extract_result.json</p>
+                    <p># 应输出: {"user_id": "alice", "confidence": ...}</p>
+                </div>
+            </section>
+
+            <!-- Step 7: Web UI (Optional) -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-1">Step 7: 部署 Web UI（可选）</h2>
+                <p class="text-gray-500 text-sm mb-4">在 EC2 上运行可视化演示页面</p>
+                <div class="bg-dark-900 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto space-y-1">
+                    <p># SSH 到你的 EC2 实例</p>
+                    <p>ssh ubuntu@your-instance</p>
+                    <p></p>
+                    <p># 克隆代码</p>
+                    <p>git clone https://github.com/tsaol/blind-watermark-s3.git</p>
+                    <p>cd blind-watermark-s3/web</p>
+                    <p></p>
+                    <p># 创建虚拟环境并安装依赖</p>
+                    <p>python3 -m venv venv</p>
+                    <p>source venv/bin/activate</p>
+                    <p>pip install -r requirements.txt</p>
+                    <p></p>
+                    <p># 设置环境变量</p>
+                    <p>export SOURCE_BUCKET=your-source-bucket-name</p>
+                    <p>export AWS_DEFAULT_REGION=ap-northeast-1</p>
+                    <p></p>
+                    <p># 用 gunicorn 启动</p>
+                    <p>gunicorn -w 2 -b 0.0.0.0:8090 server:app</p>
+                </div>
+
+                <div class="mt-4 bg-dark-900 rounded-lg p-4">
+                    <p class="text-sm font-semibold text-gray-200 mb-2">Systemd 服务（生产环境推荐）</p>
+                    <div class="font-mono text-xs text-gray-400 overflow-x-auto space-y-1">
+                        <p>[Unit]</p>
+                        <p>Description=Blind Watermark Web</p>
+                        <p>After=network.target</p>
+                        <p></p>
+                        <p>[Service]</p>
+                        <p>User=ubuntu</p>
+                        <p>WorkingDirectory=/home/ubuntu/blind-watermark</p>
+                        <p>ExecStart=/home/ubuntu/blind-watermark/venv/bin/gunicorn \</p>
+                        <p>&nbsp;&nbsp;-w 2 -b 0.0.0.0:8090 server:app</p>
+                        <p>Restart=always</p>
+                        <p></p>
+                        <p>[Install]</p>
+                        <p>WantedBy=multi-user.target</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Architecture -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4">部署架构总览</h2>
+                <div class="bg-dark-900 rounded-lg p-6 font-mono text-sm text-gray-400 leading-relaxed">
+                    <pre class="overflow-x-auto">
+┌──────────┐     ┌───────────┐     ┌─────────────────┐     ┌─────┐
+│  浏览器   │────▶│  Web 服务  │────▶│  Lambda (嵌入)   │────▶│ S3  │
+│          │     │  Flask    │     │  DCT 频域编码    │     │原始图│
+└──────────┘     │  :8090    │     └─────────────────┘     └─────┘
+                 │           │
+                 │           │────▶┌─────────────────┐
+                 └───────────┘     │  Lambda (提取)   │
+                                   │  多数投票解码    │
+                                   └─────────────────┘</pre>
+                </div>
+                <div class="mt-4 text-sm text-gray-400 space-y-1">
+                    <p>&#8226; Lambda Function URLs 使用 IAM 认证，无公开端点</p>
+                    <p>&#8226; Web 服务通过 AWS SDK 调用 Lambda，需要 IAM 凭证</p>
+                    <p>&#8226; 所有流量通过 HTTPS</p>
+                </div>
+            </section>
+
+            <!-- Troubleshooting -->
+            <section class="bg-dark-800 border border-dark-700 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4">常见问题</h2>
+                <div class="space-y-4 text-sm">
+                    <div>
+                        <p class="font-medium text-gray-200">Q: Lambda 超时？</p>
+                        <p class="text-gray-400 mt-1">A: 确保内存至少 2048MB，超时设为 120s。大图处理需要更多内存。</p>
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-200">Q: Layer 太大？</p>
+                        <p class="text-gray-400 mt-1">A: 用 <code class="text-accent">opencv-python-headless</code> 而不是 <code>opencv-python</code>，可以省 ~100MB。</p>
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-200">Q: 提取出来的 user_id 是乱码？</p>
+                        <p class="text-gray-400 mt-1">A: 图片太小（需要至少 256x256）或经过了严重压缩（JPEG quality &lt; 50）。</p>
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-200">Q: Web UI 无法调用 Lambda？</p>
+                        <p class="text-gray-400 mt-1">A: EC2 实例需要附加 IAM Role，允许 <code class="text-accent">lambda:InvokeFunction</code> 和 <code class="text-accent">s3:PutObject/GetObject</code>。</p>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <div class="mt-10 pt-6 border-t border-dark-700 text-center text-sm text-gray-500">
+            <a href="/static/index.html" class="text-accent hover:underline">&larr; 返回演示页面</a>
+        </div>
+    </div>
+</body>
+</html>
